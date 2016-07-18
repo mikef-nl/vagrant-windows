@@ -15,28 +15,88 @@ Vagrant.configure(2) do |config|
   
   config.vm.define "dc" do |dc|
     dc.vm.box = "WS2012R2"
+	dc.vm.guest = :windows
+	dc.vm.communicator = "winrm"
+	dc.vm.boot_timeout = 600
+    dc.vm.graceful_halt_timeout = 600
 	dc.vm.hostname = 'dc'
 	dc.vm.box_url = "windows2012r2min-virtualbox.box"
-	dc.vm.communicator = "winrm"
-	config.winrm.retry_limit = 30
-    config.winrm.retry_delay = 10
+	dc.winrm.username = "vagrant"
+	dc.winrm.retry_limit = 60
+	dc.winrm.retry_delay = 10
+	dc.winrm.max_tries = 20
+	dc.vm.provider :virtualbox do |v|
+	 v.customize "pre-boot", [
+       "storageattach", :id,
+       "--storagectl", "IDE Controller",
+        "--port", "0",
+       "--device", "1",
+       "--type", "dvddrive",
+       "--medium", "iso/Win2012R2Std.ISO",
+       ]
+	  end 
 	dc.vm.network "private_network", ip: "192.168.100.10", mac: "080027000010"
-	dc.vm.provision :shell, :path => "provisioning/00_admin_password.ps1"
+	dc.vm.provision :shell, inline: "iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/ansible/ansible/devel/examples/scripts/ConfigureRemotingForAnsible.ps1'))"
+	dc.vm.provision :shell, :path => "provisioning/00_admin_password.ps1", :privileged => "false"
 	dc.vm.provision :shell, :path => "provisioning/01_install_AD.ps1"
-    dc.vm.provision :shell, :path => "provisioning/02_install_forest.ps1"
+
   end
 
   config.vm.define "db" do |db|
     db.vm.box = "WS2012R2"
+	db.vm.guest = :windows
 	db.vm.hostname = 'db'
 	db.vm.box_url = "windows2012r2min-virtualbox.box" 
 	
 	db.vm.provider :virtualbox do |v|
       v.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
-      v.customize ["modifyvm", :id, "--memory", 512]
-      v.customize ["modifyvm", :id, "--name", "db"]
+	  unless File.exist?('db2.vdi')
+        v.customize ['createhd', '--filename', 'db2.vdi', '--variant', 'Fixed', '--size', 10 * 1024]
+      end
+	  v.customize ["storagectl", :id, "--name", "SATA", "--add", "SATA"]
+	  v.customize ['storageattach', :id,  '--storagectl', 'SATA', '--port', 1, '--device', 0, '--type', 'hdd', '--medium', 'db2.vdi']
+	  v.customize "pre-boot", [
+       "storageattach", :id,
+       "--storagectl", "IDE Controller",
+        "--port", "0",
+       "--device", "1",
+       "--type", "dvddrive",
+       "--medium", "iso/Win2012R2Std.ISO",
+      ]
     end
+	db.vm.network "private_network", ip: "192.168.100.11", mac: "080027000011"
   end
+  
+  config.vm.define "control" do |control|
+    control.vm.box = "centos/7"
+	config.vm.synced_folder ".", "/home/vagrant/sync", type: "virtualbox"
+    control.vm.network "private_network", ip: "192.168.100.20", mac: "080027000020"
+    control.vm.provider "virtualbox" do |v|
+      v.cpus = 1
+      v.memory = 512
+    end
+    # copy private key so hosts can ssh using key authentication (the script below sets permissions to 600)
+    control.vm.provision :file do |file|
+      file.source      = 'C:\Users\mike.fennemore\.vagrant.d\insecure_private_key'
+      file.destination = '/home/vagrant/.ssh/id_rsa'
+    end
+	control.vm.provision :shell, path: "provisioning/control-centos.sh"
+  end
+  
+#  config.vm.define "control" do |control|
+#    control.vm.box = "ubuntu/trusty64"
+#    control.vm.network "private_network", ip: "192.168.100.20", mac: "080027000020"
+#    control.vm.provider "virtualbox" do |v|
+#      v.cpus = 1
+#      v.memory = 512
+#    end
+    # copy private key so hosts can ssh using key authentication (the script below sets permissions to 600)
+#    control.vm.provision :file do |file|
+#      file.source      = 'C:\Users\mike.fennemore\.vagrant.d\insecure_private_key'
+#      file.destination = '/home/vagrant/.ssh/id_rsa'
+#    end
+#    control.vm.provision :shell, path: "provisioning/control.sh"
+#  end
 
   # Disable automatic box update checking. If you disable this, then
   # boxes will only be checked for updates when the user runs
