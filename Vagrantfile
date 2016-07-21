@@ -12,15 +12,17 @@ Vagrant.configure(2) do |config|
 
   # Every Vagrant development environment requires a box. You can search for
   # boxes at https://atlas.hashicorp.com/search.
+  open("inventory/hosts" ,'w') do |f|
+     f.write "[windows]\n"
+  end
   
   config.vm.define "dc" do |dc|
-    dc.vm.box = "WS2012R2"
+    dc.vm.box = "mwrock/Windows2012R2Full"
 	dc.vm.guest = :windows
 	dc.vm.communicator = "winrm"
 	dc.vm.boot_timeout = 600
     dc.vm.graceful_halt_timeout = 600
 	dc.vm.hostname = 'dc'
-	dc.vm.box_url = "windows2012r2min-virtualbox.box"
 	dc.winrm.username = "vagrant"
 	dc.winrm.retry_limit = 60
 	dc.winrm.retry_delay = 10
@@ -39,20 +41,23 @@ Vagrant.configure(2) do |config|
 	dc.vm.provision :shell, inline: "iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/ansible/ansible/devel/examples/scripts/ConfigureRemotingForAnsible.ps1'))"
 	dc.vm.provision :shell, :path => "provisioning/00_admin_password.ps1", :privileged => "false"
 	dc.vm.provision :shell, :path => "provisioning/01_install_AD.ps1"
-
+	open("inventory/hosts" ,'a') do |f|
+     f.puts "dc\sansible_host:192.168.100.10\sansible_user:vagrant\sansible_password=vagrant/sansible_winrm_server_cert_validation=ignore\n"
+    end
+  
   end
 
 (5..7).each do |i|  
 vm_name = "srv#{i}"
 disk_file = "#{vm_name}.vdi"
 hdd_control = "SATA#{i}"
-  config.vm.define "srv#{i}" do |db|
-    db.vm.box = "WS2012R2"
-	db.vm.guest = :windows
-	db.vm.hostname = "#{vm_name}"
-	db.vm.box_url = "windows2012r2min-virtualbox.box" 
+  config.vm.define "srv#{i}" do |srv|
+    srv.vm.box = "mwrock/Windows2012R2Full"
+	srv.vm.guest = :windows
+	srv.vm.hostname = "#{vm_name}"
+	srv.vm.box_url = "windows2012r2min-virtualbox.box" 
 	
-	db.vm.provider :virtualbox do |v|
+	srv.vm.provider :virtualbox do |v|
       v.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
 	  unless File.exist?(disk_file)
         v.customize ['createhd', '--filename', disk_file, '--size', 10 * 1024]
@@ -68,14 +73,13 @@ hdd_control = "SATA#{i}"
        "--medium", "iso/Win2012R2Std.ISO",
       ]
     end
-	db.vm.network "private_network", ip: "192.168.100.#{i}"
-	VAGRANT_NETWORK_NAME=db.vm.hostname
-	VAGRANT_NETWORK_IP="192.168.100.#{i}"
-	File.open("C:/vagrant/inventory/hosts" ,'w') do |f|
-    f.write "#{VAGRANT_NETWORK_NAME}\n"
-    f.write "#{VAGRANT_NETWORK_IP}\n"
-    end
-	db.vm.provision :shell, inline: "iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/ansible/ansible/devel/examples/scripts/ConfigureRemotingForAnsible.ps1'))"
+	srv.vm.network "private_network", ip: "192.168.100.#{i}"
+	srv.vm.provision :shell, :path => "provisioning/ChangeDisks.ps1"
+	srv.vm.provision :shell, inline: "iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/ansible/ansible/devel/examples/scripts/ConfigureRemotingForAnsible.ps1'))"
+  end
+  VAGRANT_NETWORK_IP="192.168.100.#{i}"
+  open("inventory/hosts" ,'a') do |f|
+    f.puts "#{vm_name}\sansible_host:#{VAGRANT_NETWORK_IP}\sansible_user:vagrant\sansible_password=vagrant/sansible_winrm_server_cert_validation=ignore\n"
   end
 end  
 	
@@ -96,7 +100,7 @@ end
   end
   
     # setup the ansible inventory file
-  Dir.mkdir("C:/vagrant/inventory") unless Dir.exist?("C:/vagrant/inventory")
+  Dir.mkdir("inventory") unless Dir.exist?("inventory")
 
 #  config.vm.define "control" do |control|
 #    control.vm.box = "ubuntu/trusty64"
