@@ -12,6 +12,10 @@ Vagrant.configure(2) do |config|
 
   # Every Vagrant development environment requires a box. You can search for
   # boxes at https://atlas.hashicorp.com/search.
+  
+      # setup the ansible inventory file
+  Dir.mkdir("inventory") unless Dir.exist?("inventory")
+  
   open("inventory/hosts" ,'w') do |f|
      f.write "[windows]\n"
   end
@@ -99,8 +103,7 @@ end
 	control.vm.provision :shell, path: "provisioning/control-centos.sh"
   end
   
-    # setup the ansible inventory file
-  Dir.mkdir("inventory") unless Dir.exist?("inventory")
+
 
 #  config.vm.define "control" do |control|
 #    control.vm.box = "ubuntu/trusty64"
