@@ -46,7 +46,7 @@ Vagrant.configure(2) do |config|
 	dc.vm.provision :shell, :path => "provisioning/00_admin_password.ps1", :privileged => "false"
 	dc.vm.provision :shell, :path => "provisioning/01_install_AD.ps1"
 	open("inventory/hosts" ,'a') do |f|
-     f.puts "dc\sansible_host:192.168.100.10\sansible_user:vagrant\sansible_password=vagrant\sansible_winrm_server_cert_validation=ignore\n"
+     f.puts "dc\sansible_host=192.168.100.10\sansible_user=vagrant\sansible_password=vagrant\sansible_winrm_server_cert_validation=ignore\sansible_connection=winrm\n"
     end
   
   end
@@ -83,7 +83,7 @@ hdd_control = "SATA#{i}"
   end
   vm_ip="192.168.100.#{i}"
   open("inventory/hosts" ,'a') do |f|
-    f.puts "#{vm_name}\sansible_host:#{vm_ip}\sansible_user:vagrant\sansible_password=vagrant\sansible_winrm_server_cert_validation=ignore\n"
+    f.puts "#{vm_name}\sansible_host=#{vm_ip}\sansible_user=vagrant\sansible_password=vagrant\sansible_winrm_server_cert_validation=ignore\sansible_connection=winrm\n"
   end
 end  
 	
