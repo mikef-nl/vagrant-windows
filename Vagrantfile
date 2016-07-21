@@ -81,9 +81,9 @@ hdd_control = "SATA#{i}"
 	srv.vm.provision :shell, :path => "provisioning/ChangeDisks.ps1"
 	srv.vm.provision :shell, inline: "iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/ansible/ansible/devel/examples/scripts/ConfigureRemotingForAnsible.ps1'))"
   end
-  VAGRANT_NETWORK_IP="192.168.100.#{i}"
+  vm_ip="192.168.100.#{i}"
   open("inventory/hosts" ,'a') do |f|
-    f.puts "#{vm_name}\sansible_host:#{VAGRANT_NETWORK_IP}\sansible_user:vagrant\sansible_password=vagrant/sansible_winrm_server_cert_validation=ignore\n"
+    f.puts "#{vm_name}\sansible_host:#{vm_ip}\sansible_user:vagrant\sansible_password=vagrant/sansible_winrm_server_cert_validation=ignore\n"
   end
 end  
 	
