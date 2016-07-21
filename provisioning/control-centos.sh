@@ -22,3 +22,4 @@ chown vagrant:vagrant /home/vagrant/.ssh/known_hosts
 # create ansible hosts (inventory) file
 mkdir -p /etc/ansible/
 mkdir -p /etc/ansible/group_vars
+sudo cp /home/vagrant/sync/inventory/hosts /etc/ansible/hosts
