@@ -42,19 +42,23 @@ Vagrant.configure(2) do |config|
 
   end
 
-  config.vm.define "db" do |db|
+(5..7).each do |i|  
+vm_name = "srv#{i}"
+disk_file = "#{vm_name}.vdi"
+hdd_control = "SATA#{i}"
+  config.vm.define "srv#{i}" do |db|
     db.vm.box = "WS2012R2"
 	db.vm.guest = :windows
-	db.vm.hostname = 'db'
+	db.vm.hostname = "#{vm_name}"
 	db.vm.box_url = "windows2012r2min-virtualbox.box" 
 	
 	db.vm.provider :virtualbox do |v|
       v.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
-	  unless File.exist?('db2.vdi')
-        v.customize ['createhd', '--filename', 'db2.vdi', '--variant', 'Fixed', '--size', 10 * 1024]
+	  unless File.exist?(disk_file)
+        v.customize ['createhd', '--filename', disk_file, '--size', 10 * 1024]
       end
-	  v.customize ["storagectl", :id, "--name", "SATA", "--add", "SATA"]
-	  v.customize ['storageattach', :id,  '--storagectl', 'SATA', '--port', 1, '--device', 0, '--type', 'hdd', '--medium', 'db2.vdi']
+	  v.customize ["storagectl", :id, "--name", hdd_control, "--add", "SATA"]
+	  v.customize ['storageattach', :id,  '--storagectl', hdd_control, '--port', 1, '--device', 0, '--type', 'hdd', '--medium', disk_file]
 	  v.customize "pre-boot", [
        "storageattach", :id,
        "--storagectl", "IDE Controller",
@@ -64,9 +68,17 @@ Vagrant.configure(2) do |config|
        "--medium", "iso/Win2012R2Std.ISO",
       ]
     end
-	db.vm.network "private_network", ip: "192.168.100.11", mac: "080027000011"
+	db.vm.network "private_network", ip: "192.168.100.#{i}"
+	VAGRANT_NETWORK_NAME=db.vm.hostname
+	VAGRANT_NETWORK_IP="192.168.100.#{i}"
+	File.open("C:/vagrant/inventory/hosts" ,'w') do |f|
+    f.write "#{VAGRANT_NETWORK_NAME}\n"
+    f.write "#{VAGRANT_NETWORK_IP}\n"
+    end
+	db.vm.provision :shell, inline: "iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/ansible/ansible/devel/examples/scripts/ConfigureRemotingForAnsible.ps1'))"
   end
-  
+end  
+	
   config.vm.define "control" do |control|
     control.vm.box = "centos/7"
 	config.vm.synced_folder ".", "/home/vagrant/sync", type: "virtualbox"
@@ -83,6 +95,9 @@ Vagrant.configure(2) do |config|
 	control.vm.provision :shell, path: "provisioning/control-centos.sh"
   end
   
+    # setup the ansible inventory file
+  Dir.mkdir("C:/vagrant/inventory") unless Dir.exist?("C:/vagrant/inventory")
+
 #  config.vm.define "control" do |control|
 #    control.vm.box = "ubuntu/trusty64"
 #    control.vm.network "private_network", ip: "192.168.100.20", mac: "080027000020"
